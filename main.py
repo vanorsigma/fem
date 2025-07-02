@@ -33,11 +33,13 @@ face_mesh = mp_face_mesh.FaceMesh(refine_landmarks=True)
 LEFT_EYE_IDX = [33, 160, 158, 133, 153, 144]
 RIGHT_EYE_IDX = [263, 387, 385, 362, 380, 373]
 
-LEFT_THRESHOLD = 0.21
-RIGHT_THRESHOLD = 0.21
+LEFT_THRESHOLD = 0.09
+RIGHT_THRESHOLD = 0.09
 
-STABILITY_MAJORITY = 5
-DETECTION_TOTAL_DURATION = 0.01
+EYE_STABILITY_MAJORITY = 7
+
+EMOTION_STABILITY_MAJORITY = 5
+EMOTION_DETECTION_TOTAL_DURATION = 0.1
 
 RAGEY_THRESHOLD = 30
 
@@ -277,10 +279,11 @@ async def main():
     while True:
         try:
             cap = cv2.VideoCapture(0)
-            history = []
+            emotion_history = []
+            eyelids_history = []
+            start_time = 0
 
             while cap.isOpened():
-                start_time = time.time_ns()
                 success, img = cap.read()
                 if not success:
                     print("Failed to get capture")
@@ -288,38 +291,44 @@ async def main():
 
                 img = cv2.resize(img, (640, 480))
 
-                emotion = get_emotion(img)
-                # left_eye, right_eye = get_eye_state(img)
+                if (
+                    time.time_ns() - start_time
+                    >= EMOTION_DETECTION_TOTAL_DURATION * 10e9
+                ):
+                    emotion = get_emotion(img)
+                    emotion_history.append(emotion)
+                    start_time = time.time_ns()
+                else:
+                    emotion = emotion_history[0]
 
-                if len(history) > STABILITY_MAJORITY:
-                    history.pop(0)
-                history.append((emotion, False, False))
+                left_eye, right_eye = get_eye_state(img)
+
+                if len(eyelids_history) > EYE_STABILITY_MAJORITY:
+                    eyelids_history.pop(0)
+                eyelids_history.append((left_eye, right_eye))
+
+                if len(emotion_history) > EMOTION_STABILITY_MAJORITY:
+                    emotion_history.pop(0)
 
                 # use the majority
-                majority_emotion = Counter(map(lambda x: x[0], history)).most_common(1)[
-                    0
-                ][0]
-                majority_left_eye = Counter(map(lambda x: x[1], history)).most_common(
-                    1
-                )[0][0]
-                majority_right_eye = Counter(map(lambda x: x[2], history)).most_common(
-                    1
-                )[0][0]
+                majority_emotion = Counter(emotion_history).most_common(1)[0][0]
+                majority_left_eye = Counter(
+                    map(lambda x: x[0], eyelids_history)
+                ).most_common(1)[0][0]
+                majority_right_eye = Counter(
+                    map(lambda x: x[1], eyelids_history)
+                ).most_common(1)[0][0]
 
-                # print(
-                #     f"Guessed {majority_emotion}, left eye: {majority_left_eye}, right eye: {majority_right_eye}"
-                # )
+                print(
+                    f"Guessed {majority_emotion}, left eye: {majority_left_eye}, right eye: {majority_right_eye}"
+                )
                 # print(f"Guessed {majority_emotion}")
                 await update_managed_scene_with_emotion(
-                    ws, majority_emotion, not majority_left_eye, not majority_right_eye
+                    ws,
+                    majority_emotion,
+                    not (majority_left_eye or majority_right_eye),
+                    not (majority_left_eye or majority_right_eye),
                 )
-                end_time = time.time_ns()
-
-                sleep_duration = (DETECTION_TOTAL_DURATION * 10e9) - (
-                    end_time - start_time
-                )
-                if sleep_duration > 0:
-                    await asyncio.sleep(sleep_duration * 10e-9)
 
         except KeyboardInterrupt:
             print("Killing script")
