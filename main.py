@@ -319,9 +319,9 @@ async def main():
                     map(lambda x: x[1], eyelids_history)
                 ).most_common(1)[0][0]
 
-                print(
-                    f"Guessed {majority_emotion}, left eye: {majority_left_eye}, right eye: {majority_right_eye}"
-                )
+                # print(
+                #     f"Guessed {majority_emotion}, left eye: {majority_left_eye}, right eye: {majority_right_eye}"
+                # )
                 # print(f"Guessed {majority_emotion}")
                 await update_managed_scene_with_emotion(
                     ws,
