@@ -1,0 +1,21 @@
+[project]
+name = "fem"
+version = "0.1.0"
+description = "Facial Emotional Thing"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "deepface>=0.0.93",
+    "mediapipe>=0.10.21",
+    "opencv-python>=4.11.0.86",
+    "simpleobsws>=1.4.3",
+    "tf-keras>=2.18.0",
+]
+
+[dependency-groups]
+dev = [
+    "isort>=6.0.1",
+    "pylint>=3.3.7",
+    "python-lsp-server>=1.12.2",
+    "ruff>=0.12.1",
+]
